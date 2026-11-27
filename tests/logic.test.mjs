@@ -4,7 +4,7 @@ import { readFileSync, mkdtempSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fitTransform, findSnap, remaining, isComplete, SNAP_RADIUS, COLORS, TYPE_ORDER } from "../site/logic.js";
+import { fitTransform, findSnap, remaining, isComplete, uprightShape, SNAP_RADIUS, COLORS, TYPE_ORDER } from "../site/logic.js";
 
 const sq = (t, cx, cy) => ({ t, pts: [], c: [cx, cy] });
 
@@ -52,5 +52,19 @@ test("real designs: every piece snaps onto a slot of its type", () => {
       filled[i] = true;
     }
     assert.equal(isComplete(filled), true, id);
+  }
+});
+
+test("uprightShape: every type is centred, flat-bottomed and the real size", () => {
+  const area = p => Math.abs(p.reduce((a, [x, y], i) => { const [u, v] = p[(i + 1) % p.length]; return a + x * v - u * y; }, 0)) / 2;
+  const want = { hex: 3 * Math.sqrt(3) / 2, trap: 3 * Math.sqrt(3) / 4, rhomb: Math.sqrt(3) / 2, thin: 0.5,
+    tri: Math.sqrt(3) / 4, sq: 1, bluetri: 0.5, quarter: Math.PI / 4 };
+  for (const t of TYPE_ORDER) {
+    const p = uprightShape(t);
+    assert.ok(Math.abs(area(p) - want[t]) < 0.01, `${t} area ${area(p)}`);
+    const cx = p.reduce((a, q) => a + q[0], 0) / p.length;
+    assert.ok(Math.abs(Math.min(...p.map(q => q[0])) + Math.max(...p.map(q => q[0]))) < 1.2, `${t} roughly centred`);
+    const maxY = Math.max(...p.map(q => q[1]));
+    assert.ok(p.filter(q => Math.abs(q[1] - maxY) < 1e-9).length >= 2, `${t} rests on a flat bottom edge`);
   }
 });

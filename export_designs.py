@@ -4,8 +4,8 @@ import importlib, io, contextlib, json, os, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # ~/Downloads/ghep-hinh
 sys.path.insert(0, ROOT)
-# Prototype: only these pictures are shipped (easiest first). Set to None to ship all 234.
-PROTOTYPE = ["p04_con_vat_2-8", "p06_trai_cay_1-7", "p18_con_vat_4-3", "p14_phep_thuat-1", "p06_trai_cay_1-8"]
+# The easiest pictures, shown first in their own "Hình dễ" tab (they also stay in their booklet group).
+EASY = ["p04_con_vat_2-8", "p06_trai_cay_1-7", "p18_con_vat_4-3", "p14_phep_thuat-1", "p06_trai_cay_1-8"]
 BOOKS = [("ban-dau", "Tập ban đầu", "designs/p*.py"), ("moi", "Tập mới", "designs/n*.py")]
 
 def _centroid(pts):
@@ -28,7 +28,7 @@ def _grouped(pattern):
         os.chdir(cwd); sys.argv = argv
     return g
 
-def export(out_path, only=None):
+def export(out_path, easy=None):
     import pb
     books = []
     for bid, title, pattern in BOOKS:
@@ -51,13 +51,13 @@ def export(out_path, only=None):
                 out.append({"id": d["_id"], "label": d["label"], "w": w, "h": h, "pieces": pieces})
             groups.append({"title": gtitle, "designs": out})
         books.append({"id": bid, "title": title, "groups": groups})
-    if only:
+    if easy:
         flat = {d["id"]: d for b in books for g in b["groups"] for d in g["designs"]}
-        books = [{"id": "de", "title": "Hình dễ", "groups": [{"title": "5 hình dễ", "designs": [flat[i] for i in only]}]}]
+        books = [{"id": "de", "title": "Hình dễ", "groups": [{"title": f"{len(easy)} hình dễ", "designs": [flat[i] for i in easy]}]}] + books
     data = {"books": books}
     with open(out_path, "w") as f:
         json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
     return data
 
 if __name__ == "__main__":
-    export(os.path.join(os.path.dirname(os.path.abspath(__file__)), "site", "designs.json"), only=PROTOTYPE)
+    export(os.path.join(os.path.dirname(os.path.abspath(__file__)), "site", "designs.json"), easy=EASY)

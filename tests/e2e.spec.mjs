@@ -7,7 +7,19 @@ import path from "node:path";
 import { readFileSync } from "node:fs";
 
 const SITE = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "site");
-const N = JSON.parse(readFileSync(path.join(SITE, "designs.json"))).books.flatMap(b => b.groups.flatMap(g => g.designs)).length;
+const DATA = JSON.parse(readFileSync(path.join(SITE, "designs.json")));
+const ALL = DATA.books.flatMap(b => b.groups.flatMap(g => g.designs));
+const N = ALL.length;
+const BOOK_OF = id => DATA.books.find(b => b.groups.some(g => g.designs.some(d => d.id === id))).id;
+async function openId(page, id) {
+  const book = BOOK_OF(id);
+  await page.click(`.tab[data-book="${book}"]`);
+  await page.click(`.book[data-book="${book}"] .thumb[data-id="${id}"]`);
+}
+// layout sample: the easy tab, plus the widest, tallest and most-pieces pictures
+const by = f => [...ALL].sort((a, b) => f(b) - f(a))[0].id;
+const SAMPLE = [...new Set([...DATA.books[0].groups.flatMap(g => g.designs.map(d => d.id)),
+  by(d => d.w / d.h), by(d => d.h / d.w), by(d => d.pieces.length), by(d => new Set(d.pieces.map(p => p.t)).size)])];
 const LIFT = 60;                    // the app draws the dragged piece this many px above the finger
 const ID = "p14_phep_thuat-1";      // Chim cánh cụt: hex 3, rhomb 2, thin 4
 
@@ -195,8 +207,8 @@ await t("tapping back right after the last piece keeps the star, no error", asyn
 });
 for (const [w, h] of [[1024, 1366], [768, 1024], [390, 844], [844, 390]]) {
   await t(`picture is not hidden under the tray at ${w}x${h}`, async page => {
-    for (const id of await page.goto(BASE).then(() => page.$$eval(".thumb", els => els.map(e => e.dataset.id)))) {
-      await page.goto(BASE); await page.click(`.thumb[data-id="${id}"]`); await page.waitForSelector(".tray-item");
+    for (const id of SAMPLE) {
+      await page.goto(BASE); await openId(page, id); await page.waitForSelector(".tray-item");
       await page.waitForTimeout(100);
       const trayTop = (await page.locator("#tray").boundingBox()).y;
       const headerBottom = await page.$eval("#play .bar", e => e.getBoundingClientRect().bottom);

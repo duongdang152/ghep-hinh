@@ -18,18 +18,20 @@ class ExportTest(unittest.TestCase):
         import tempfile
         cls.tmp = tempfile.mkdtemp()
         cls.data = export_designs.export(os.path.join(cls.tmp, "all.json"))
-        cls.proto = export_designs.export(os.path.join(cls.tmp, "proto.json"), only=export_designs.PROTOTYPE)
+        cls.site = export_designs.export(os.path.join(cls.tmp, "site.json"), easy=export_designs.EASY)
         cls.designs = [d for b in cls.data["books"] for g in b["groups"] for d in g["designs"]]
 
     def test_counts(self):
         books = {b["id"]: sum(len(g["designs"]) for g in b["groups"]) for b in self.data["books"]}
         self.assertEqual(books, {"ban-dau": 188, "moi": 46})
 
-    def test_prototype_is_five_in_order(self):
+    def test_easy_book_first(self):
         import export_designs
-        ds = [d for b in self.proto["books"] for g in b["groups"] for d in g["designs"]]
-        self.assertEqual([d["id"] for d in ds], export_designs.PROTOTYPE)
-        self.assertEqual([d["label"] for d in ds], ["Con cáo", "Mặt trời", "Con chuột", "Chim cánh cụt", "Ngôi nhà"])
+        self.assertEqual([b["id"] for b in self.site["books"]], ["de", "ban-dau", "moi"])
+        easy = [d for g in self.site["books"][0]["groups"] for d in g["designs"]]
+        self.assertEqual([d["id"] for d in easy], export_designs.EASY)
+        self.assertEqual([d["label"] for d in easy], ["Con cáo", "Mặt trời", "Con chuột", "Chim cánh cụt", "Ngôi nhà"])
+        self.assertEqual(sum(len(g["designs"]) for b in self.site["books"][1:] for g in b["groups"]), 234)
 
     def test_ids_unique(self):
         ids = [d["id"] for d in self.designs]

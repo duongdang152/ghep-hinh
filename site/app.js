@@ -1,5 +1,5 @@
 // UI for the pattern-block puzzle: picker, play board, touch dragging, celebration.
-import { fitTransform, findSnap, remaining, isComplete, SNAP_RADIUS, COLORS, TYPE_ORDER } from "./logic.js";
+import { fitTransform, findSnap, remaining, isComplete, uprightShape, SNAP_RADIUS, COLORS, TYPE_ORDER } from "./logic.js";
 
 const LIFT = 60;           // dragged piece is drawn this many px above the finger so it stays visible
 const PAD = 16;            // board padding, px
@@ -99,8 +99,10 @@ function renderBoard() {
   });
 }
 // Shape shown for a type in the tray / while dragging: the first slot of that type, centred on its centroid.
-function shapeOf(type, prefer = -1) {
-  const p = prefer >= 0 ? game.d.pieces[prefer] : game.d.pieces.find((q, i) => q.t === type && !game.filled[i]) || game.d.pieces.find(q => q.t === type);
+// Tray pieces stand upright; a piece lifted out of a slot keeps that slot's angle.
+function shapeOf(type, fromSlot = -1) {
+  if (fromSlot < 0) return uprightShape(type);
+  const p = game.d.pieces[fromSlot];
   return p.pts.map(([x, y]) => [x - p.c[0], y - p.c[1]]);
 }
 function renderTray() {
