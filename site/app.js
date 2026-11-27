@@ -119,8 +119,14 @@ function beginDrag(e, type, fromSlot) {
   const svg = el("svg", { class: "drag", width: 2 * r, height: 2 * r, viewBox: `${-r} ${-r} ${2 * r} ${2 * r}` });
   svg.append(el("polygon", { points: ptsAttr(pts, s), fill: COLORS[type], stroke: "#2b1d14", "stroke-width": 1.6, "stroke-linejoin": "round" }));
   document.body.append(svg);
-  if (fromSlot >= 0) { game.filled[fromSlot] = false; renderBoard(); renderTray(); }
-  drag = { id: e.pointerId, type, r, svg };
+  try { $("#play").setPointerCapture(e.pointerId); } catch {}   // keep receiving moves even if a node changes
+  if (fromSlot >= 0) {
+    // update the touched slot in place: removing the node under the finger stops iOS delivering the drag
+    game.filled[fromSlot] = false;
+    e.currentTarget.classList.remove("filled"); e.currentTarget.setAttribute("fill-opacity", 0.22);
+    renderTray();
+  }
+  drag = { id: e.pointerId, type, r, svg, fromSlot };
   moveTo(e.clientX, e.clientY - LIFT);
 }
 function moveTo(x, y) { drag.x = x; drag.y = y; drag.svg.style.transform = `translate(${x - drag.r}px, ${y - drag.r}px)`; }
@@ -137,25 +143,29 @@ function endDrag(e) {
   const i = e.type === "pointerup" ? findSnap(drag.type, pt, game.d.pieces, game.filled, SNAP_RADIUS) : -1;
   if (i >= 0) {
     const c = game.d.pieces[i].c;
-    game.filled[i] = true;                         // commit now so a fast next drag sees the right state
-    flyTo(b.left + ox + c[0] * scale, b.top + oy + c[1] * scale, () => {
-      renderBoard(); renderTray();
-      if (isComplete(game.filled)) celebrate();
-    });
+    game.filled[i] = true;                         // commit and redraw now; nothing is rebuilt later
+    const g = game, complete = isComplete(g.filled);
+    if (complete) saveDone(g.d.id);
+    renderBoard(); renderTray();
+    flyTo(b.left + ox + c[0] * scale, b.top + oy + c[1] * scale, () => { if (complete && game === g) celebrate(); });
   } else {
     const home = document.querySelector(`.tray-item[data-type="${drag.type}"]`);
     const h = home ? home.getBoundingClientRect() : { left: drag.x, top: window.innerHeight, width: 0, height: 0 };
-    flyTo(h.left + h.width / 2, h.top + h.height / 2, () => { renderTray(); });
+    flyTo(h.left + h.width / 2, h.top + h.height / 2);
   }
 }
-function cancelDrag() { if (drag) { drag.svg.remove(); drag = null; } }
+function cancelDrag() {
+  if (!drag) return;
+  if (game && drag.fromSlot >= 0) game.filled[drag.fromSlot] = true;
+  drag.svg.remove(); drag = null;
+}
 window.addEventListener("pointermove", e => { if (drag && e.pointerId === drag.id) moveTo(e.clientX, e.clientY - LIFT); });
 window.addEventListener("pointerup", endDrag);
 window.addEventListener("pointercancel", endDrag);
 
 // ---------- celebration ----------
 function celebrate() {
-  saveDone(game.d.id);
+  if (!game) return;
   const stars = document.querySelector("#done .stars"); stars.textContent = "";
   for (let k = 0; k < 7; k++) {
     const s = document.createElement("i"); s.textContent = "★";

@@ -131,6 +131,68 @@ await t("a placed piece can be dragged back out", async page => {
   await drag(page, `.slot[data-i="${i}"]`, [10, 200]);
   assert.equal(await filledCount(page), 0); assert.equal(await badge(page, "thin"), "×4");
 });
+await t("touched node survives the drag (iOS stuck-drag)", async page => {
+  await open(page);
+  const [i] = await slotSel(page, "thin");
+  await dropOnSlot(page, "thin", i);
+  // lift the placed piece: the node under the finger must stay in the page during the drag
+  const [x, y] = await center(page, `.slot[data-i="${i}"]`);
+  await page.evaluate(([x, y]) => { window.__touched = document.elementFromPoint(x, y); }, [x, y]);
+  await pointer(page, "pointerdown", x, y, 1);
+  assert.equal(await page.evaluate(() => window.__touched.isConnected), true, "slot node kept");
+  await pointer(page, "pointerup", 10, 200, 1);
+  // grab a tray item immediately after a drop: it must stay in the page too
+  const [j] = await slotSel(page, "thin");
+  const [sx, sy] = await center(page, `.slot[data-i="${j}"]`);
+  await drag(page, `.tray-item[data-type="thin"]`, [sx, sy + LIFT]);
+  const [hx, hy] = await center(page, `.tray-item[data-type="hex"]`);
+  await page.evaluate(([x, y]) => { window.__tray = document.elementFromPoint(x, y).closest(".tray-item"); }, [hx, hy]);
+  await pointer(page, "pointerdown", hx, hy, 1);
+  await page.waitForTimeout(300);
+  assert.equal(await page.evaluate(() => window.__tray.isConnected), true, "tray node kept");
+  await pointer(page, "pointerup", 10, 200, 1);
+});
+await t("tray fits a phone without sideways scrolling", async page => {
+  await page.goto(BASE); await page.click('.thumb[data-id="p04_con_vat_2-8"]'); await page.waitForSelector(".tray-item");
+  const right = await page.$$eval(".tray-item", els => Math.max(...els.map(e => e.getBoundingClientRect().right)));
+  assert.ok(right <= 390, `last tray item ends at ${right}`);
+  const sizes = await page.$$eval(".tray-item", els => els.map(e => e.getBoundingClientRect().width));
+  assert.ok(Math.min(...sizes) >= 44, "items stay finger-sized");
+}, { width: 390, height: 844 });
+await t("pinch-zoom blocked on play and done screens", async page => {
+  await open(page);
+  const ta = await page.evaluate(() => ["#play", "#done", "#picker"].map(s => getComputedStyle(document.querySelector(s)).touchAction));
+  assert.deepEqual(ta, ["none", "none", "pan-y"]);
+});
+await t("rotate mid-drag puts a lifted piece back in its slot", async page => {
+  await open(page);
+  const [i] = await slotSel(page, "thin");
+  await dropOnSlot(page, "thin", i);
+  const [x, y] = await center(page, `.slot[data-i="${i}"]`);
+  await pointer(page, "pointerdown", x, y, 1);
+  await page.setViewportSize({ width: 768, height: 1024 }); await page.waitForTimeout(300);
+  assert.equal(await page.$eval(`.slot[data-i="${i}"]`, e => e.classList.contains("filled")), true);
+  assert.equal(await page.$$eval(".drag", e => e.length), 0);
+});
+await t("tapping back right after the last piece keeps the star, no error", async page => {
+  const errors = []; page.on("pageerror", e => errors.push(e.message));
+  await open(page);
+  for (let k = 0; k < 30; k++) {
+    const left = await page.$$eval(".slot:not(.filled)", els => els.map(e => [e.dataset.type, e.dataset.i]));
+    if (left.length <= 1) break;
+    await dropOnSlot(page, left[0][0], left[0][1]);
+  }
+  const [[type, i]] = await page.$$eval(".slot:not(.filled)", els => els.map(e => [e.dataset.type, e.dataset.i]));
+  const [sx, sy] = await center(page, `.slot[data-i="${i}"]`);
+  const [tx, ty] = await center(page, `.tray-item[data-type="${type}"]`);
+  await pointer(page, "pointerdown", tx, ty, 1);
+  await pointer(page, "pointermove", sx, sy + LIFT, 1);
+  await pointer(page, "pointerup", sx, sy + LIFT, 1);
+  await page.click("#back");
+  await page.waitForTimeout(400);
+  assert.deepEqual(errors, []);
+  assert.equal(await page.$eval(`.thumb[data-id="${ID}"]`, e => e.classList.contains("done")), true);
+});
 if (process.env.E2E_OFFLINE !== "0") await t("works offline after first load", async (page, ctx) => {
   await page.goto(BASE);
   const ok = await page.evaluate(() => Promise.race([

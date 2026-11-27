@@ -50,5 +50,18 @@ class ExportTest(unittest.TestCase):
             for pc in d["pieces"]:
                 self.assertTrue(inside(pc["c"], pc["pts"]), (d["id"], pc["t"]))
 
+class ServiceWorkerTest(unittest.TestCase):
+    def test_cache_name_matches_files(self):
+        import hashlib, re
+        site = os.path.join(APP, "site")
+        files = ["index.html", "style.css", "app.js", "logic.js", "designs.json", "manifest.webmanifest"]
+        h = hashlib.sha256(b"".join(open(os.path.join(site, f), "rb").read() for f in files)).hexdigest()[:10]
+        sw = open(os.path.join(site, "sw.js")).read()
+        self.assertIn(f'"ghep-hinh-{h}"', sw, "run python3 stamp_sw.py after changing the site")
+
+    def test_install_bypasses_http_cache(self):
+        sw = open(os.path.join(APP, "site", "sw.js")).read()
+        self.assertIn('cache: "reload"', sw)
+
 if __name__ == "__main__":
     unittest.main()
