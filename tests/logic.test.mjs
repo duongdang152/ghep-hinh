@@ -1,6 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, mkdtempSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fitTransform, findSnap, remaining, isComplete, SNAP_RADIUS, COLORS, TYPE_ORDER } from "../site/logic.js";
 
 const sq = (t, cx, cy) => ({ t, pts: [], c: [cx, cy] });
@@ -33,7 +36,10 @@ test("constants", () => {
 });
 
 test("real designs: every piece snaps onto a slot of its type", () => {
-  const data = JSON.parse(readFileSync(new URL("../site/designs.json", import.meta.url)));
+  // the shipped site may be a small prototype; check odd-angle designs from the full set
+  const out = join(mkdtempSync(join(tmpdir(), "gh-")), "all.json");
+  execFileSync("python3", ["-c", `import sys; sys.path.insert(0, "${new URL("..", import.meta.url).pathname}"); import export_designs; export_designs.export("${out}")`]);
+  const data = JSON.parse(readFileSync(out));
   const all = data.books.flatMap(b => b.groups.flatMap(g => g.designs));
   for (const id of ["p03_con_vat_1-1", "n09_may_bay_b-4", "p12_hoa_van_2-0"]) {
     const d = all.find(x => x.id === id);
