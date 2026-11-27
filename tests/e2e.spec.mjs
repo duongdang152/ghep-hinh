@@ -19,7 +19,7 @@ async function openId(page, id) {
 }
 // layout sample: the easy tab, plus the widest, tallest and most-pieces pictures
 const by = f => [...ALL].sort((a, b) => f(b) - f(a))[0].id;
-const SAMPLE = [...new Set([...DATA.books[0].groups.flatMap(g => g.designs.map(d => d.id)),
+const SAMPLE = [...new Set([...DATA.books[0].groups.flatMap(g => g.designs.map(d => d.id)).slice(0, 5),
   by(d => d.w / d.h), by(d => d.h / d.w), by(d => d.pieces.length), by(d => new Set(d.pieces.map(p => p.t)).size)])];
 const LIFT = 60;                    // the app draws the dragged piece this many px above the finger
 const ID = "p14_phep_thuat-1";      // Chim cánh cụt: hex 3, rhomb 2, thin 4
@@ -66,7 +66,7 @@ async function dropOnSlot(page, type, i) {
   const [sx, sy] = await center(page, `.slot[data-i="${i}"]`);
   await drag(page, `.tray-item[data-type="${type}"]`, [sx, sy + LIFT]);
 }
-const open = async page => { await page.goto(BASE); await page.click(`.thumb[data-id="${ID}"]`); await page.waitForSelector("#play:not([hidden]) .slot"); };
+const open = async page => { await page.goto(BASE); await openId(page, ID); await page.waitForSelector("#play:not([hidden]) .slot"); };
 const badge = (page, type) => page.$eval(`.tray-item[data-type="${type}"] .badge`, e => e.textContent).catch(() => null);
 const filledCount = page => page.$$eval(".slot.filled", e => e.length);
 
@@ -248,14 +248,13 @@ async function turnAndPlace(page, type, i, angle) {
   await drag(page, ".loose", [sx, sy + LIFT]);
 }
 
-await t("hard: choice is remembered and the picture shows only its outline", async page => {
+await t("hard: choice is remembered and piece outlines stay visible", async page => {
   await page.goto(BASE); await page.click('.mode[data-mode="hard"]');
   await page.reload(); await page.waitForSelector(".thumb");
   assert.equal(await page.$eval('.mode[data-mode="hard"]', e => e.getAttribute("aria-pressed")), "true");
   await openId(page, ID); await page.waitForSelector(".slot");
-  assert.equal(await page.$$eval(".silhouette", e => e.length), 1);
   const strokes = await page.$$eval(".slot:not(.filled)", els => els.map(e => getComputedStyle(e).stroke));
-  assert.ok(strokes.every(s => s === "none"), "no piece lines in hard mode");
+  assert.ok(strokes.every(s => s !== "none"), "every piece outline is drawn in hard mode too");
 });
 await t("hard: wrong angle leaves a loose piece where it fell", async page => {
   await hardOpen(page);
@@ -321,6 +320,22 @@ await t("hard: finishing gives the hard star, not the easy one", async page => {
   assert.equal(await star(), true);
   await page.click('.mode[data-mode="easy"]');
   assert.equal(await star(), false);
+});
+for (const m of ["easy", "hard"]) await t(`${m}: picture keeps its size as the tray empties`, async page => {
+  await page.goto(BASE); await page.click(`.mode[data-mode="${m}"]`); await openId(page, FOX);
+  await page.waitForSelector(".slot");
+  const box = () => page.$eval("#board", svg => { const r = [...svg.querySelectorAll(".slot")].map(e => e.getBoundingClientRect());
+    return [Math.min(...r.map(b => b.left)), Math.min(...r.map(b => b.top)), Math.max(...r.map(b => b.right)), Math.max(...r.map(b => b.bottom))].map(Math.round); });
+  const before = await box();
+  for (let k = 0; k < 12; k++) {
+    const left = await page.$$eval(".slot:not(.filled)", els => els.map(e => [e.dataset.type, e.dataset.i, +(e.dataset.angle || 0)]));
+    if (!left.length) break;
+    const [type, i, angle] = left[0];
+    if (m === "easy") await dropOnSlot(page, type, i);
+    else { await drag(page, `.tray-item[data-type="${type}"]`, [200, 200]); await turnAndPlace(page, type, i, angle); }
+    await page.waitForTimeout(150);
+    assert.deepEqual(await box(), before, `picture moved after placing ${type}`);
+  }
 });
 if (process.env.E2E_OFFLINE !== "0") await t("works offline after first load", async (page, ctx) => {
   await page.goto(BASE);

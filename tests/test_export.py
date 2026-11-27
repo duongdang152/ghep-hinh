@@ -18,20 +18,26 @@ class ExportTest(unittest.TestCase):
         import tempfile
         cls.tmp = tempfile.mkdtemp()
         cls.data = export_designs.export(os.path.join(cls.tmp, "all.json"))
-        cls.site = export_designs.export(os.path.join(cls.tmp, "site.json"), easy=export_designs.EASY)
         cls.designs = [d for b in cls.data["books"] for g in b["groups"] for d in g["designs"]]
 
-    def test_counts(self):
-        books = {b["id"]: sum(len(g["designs"]) for g in b["groups"]) for b in self.data["books"]}
-        self.assertEqual(books, {"ban-dau": 188, "moi": 46})
+    def test_tabs_are_themes(self):
+        self.assertEqual([b["title"] for b in self.data["books"]],
+            ["Con vật", "Chim", "Dưới nước", "Côn trùng", "Khủng long", "Cây cỏ", "Xe cộ", "Đồ vật", "Hoa văn", "Chữ cái", "Chữ số"])
 
-    def test_easy_book_first(self):
-        import export_designs
-        self.assertEqual([b["id"] for b in self.site["books"]], ["de", "ban-dau", "moi"])
-        easy = [d for g in self.site["books"][0]["groups"] for d in g["designs"]]
-        self.assertEqual([d["id"] for d in easy], export_designs.EASY)
-        self.assertEqual([d["label"] for d in easy], ["Con cáo", "Mặt trời", "Con chuột", "Chim cánh cụt", "Ngôi nhà"])
-        self.assertEqual(sum(len(g["designs"]) for b in self.site["books"][1:] for g in b["groups"]), 234)
+    def test_every_picture_once(self):
+        self.assertEqual(len(self.designs), 234)
+
+    def test_new_pictures_join_their_theme(self):
+        tab = {d["label"]: b["title"] for b in self.data["books"] for g in b["groups"] for d in g["designs"]}
+        self.assertEqual(tab["Cá mập"], "Dưới nước"); self.assertEqual(tab["Gà trống"], "Chim")
+        self.assertEqual(tab["Sư tử"], "Con vật"); self.assertEqual(tab["Hoa sen"], "Cây cỏ")
+        self.assertEqual(tab["Xe tăng hạng nặng"], "Xe cộ"); self.assertEqual(tab["Máy bay chở khách"], "Xe cộ")
+
+    def test_easiest_first_in_each_tab(self):
+        for b in self.data["books"]:
+            if b["title"] in ("Chữ cái", "Chữ số"): continue     # keep A..Z and 1..9 in order
+            n = [len(d["pieces"]) for g in b["groups"] for d in g["designs"]]
+            self.assertEqual(n, sorted(n), b["title"])
 
     def test_ids_unique(self):
         ids = [d["id"] for d in self.designs]
