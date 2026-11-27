@@ -31,3 +31,23 @@ export function remaining(pieces, filled) {
 }
 
 export const isComplete = filled => filled.every(Boolean);
+
+// A piece standing upright on a flat edge, centred on its centroid (tray and drag preview).
+const H = Math.sqrt(3) / 2, C30 = Math.cos(Math.PI / 6);
+const CANON = {
+  hex: [[0, 0], [1, 0], [1.5, -H], [1, -2 * H], [0, -2 * H], [-0.5, -H]],
+  trap: [[0, 0], [2, 0], [1.5, -H], [0.5, -H]],
+  rhomb: [[0, 0], [1, 0], [1.5, -H], [0.5, -H]],
+  thin: [[0, 0], [1, 0], [1 + C30, -0.5], [C30, -0.5]],
+  tri: [[0, 0], [1, 0], [0.5, -H]],
+  sq: [[0, 0], [1, 0], [1, -1], [0, -1]],
+  bluetri: [[0, 0], [1, 0], [0, -1]],
+  quarter: [[0, 0], [1, 0], ...Array.from({ length: 23 }, (_, k) => { const a = (k + 1) * Math.PI / 48; return [Math.cos(a), -Math.sin(a)]; }), [0, -1]],
+};
+export function uprightShape(type) {
+  const p = CANON[type];
+  let a = 0, cx = 0, cy = 0;
+  p.forEach(([x1, y1], i) => { const [x2, y2] = p[(i + 1) % p.length], k = x1 * y2 - x2 * y1; a += k; cx += (x1 + x2) * k; cy += (y1 + y2) * k; });
+  a /= 2; cx /= 6 * a; cy /= 6 * a;
+  return p.map(([x, y]) => [x - cx, y - cy]);
+}
