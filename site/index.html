@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Ghép hình</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main id="picker">
+  <header class="bar"><h1>Ghép hình</h1></header>
+  <nav class="tabs" id="tabs"></nav>
+  <div id="books"></div>
+</main>
+
+<section id="play" hidden>
+  <header class="bar">
+    <button id="back" class="btn" aria-label="Về danh sách">←</button>
+    <h2 id="title"></h2>
+    <button id="restart" class="btn" aria-label="Làm lại">↺</button>
+  </header>
+  <div id="board-wrap"><svg id="board"></svg></div>
+  <div id="tray"></div>
+</section>
+
+<div id="done" hidden>
+  <div class="card">
+    <div class="stars" aria-hidden="true"></div>
+    <p class="cheer">Giỏi quá!</p>
+    <div class="row">
+      <button id="to-list" class="btn wide">Về danh sách</button>
+      <button id="next" class="btn wide primary">Hình tiếp theo</button>
+    </div>
+  </div>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
