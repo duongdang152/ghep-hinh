@@ -1,7 +1,7 @@
 // UI for the pattern-block puzzle: picker, play board, touch dragging, celebration.
 // Easy mode: every piece's outline is drawn; a piece turns itself when it snaps.
-// Hard mode: only the picture's outer shape is drawn; the child turns pieces (tap a loose piece, or twist
-// with a second finger while dragging) and a piece snaps only when it is turned the right way.
+// Hard mode: same outlines, but the child turns pieces (tap a loose piece, or twist with a second finger
+// while dragging) and a piece snaps only when it is turned the right way.
 import {
   fitTransform, findSnap, findSnapHard, remaining, isComplete, uprightShape, rotatePts, slotAngle,
   SNAP_RADIUS, TAP_STEP, COLORS, TYPE_ORDER,
@@ -45,7 +45,7 @@ function renderPicker() {
     const sec = document.createElement("section");
     sec.className = "book"; sec.dataset.book = b.id; sec.hidden = bi !== 0;
     for (const g of b.groups) {
-      const h = document.createElement("h3"); h.textContent = g.title; sec.append(h);
+      if (g.title) { const h = document.createElement("h3"); h.textContent = g.title; sec.append(h); }
       const grid = document.createElement("div"); grid.className = "grid";
       for (const d of g.designs) {
         const btn = document.createElement("button");
@@ -91,7 +91,12 @@ function startGame(id) {
 }
 function layout() {
   if (!game) return;
-  renderTray();                                    // the tray's height decides how much room the picture gets
+  // the tray's height decides how much room the picture gets; hold that height for the whole game so the
+  // picture does not grow when a piece type runs out (only a real screen change refits it)
+  const tray = $("#tray");
+  tray.style.minHeight = "";
+  renderTray();
+  tray.style.minHeight = `${tray.getBoundingClientRect().height}px`;
   fitBoard();
 }
 function fitBoard() {
@@ -108,14 +113,6 @@ new ResizeObserver(() => fitBoard()).observe($("#board-wrap"));   // tray rows c
 function renderBoard() {
   const { d, filled, fit } = game, svg = $("#board"), hard = game.mode === "hard";
   svg.textContent = "";
-  svg.classList.toggle("hard", hard);
-  if (hard) {
-    // outer shape only: every piece stroked, then every piece filled on top, which hides the inner lines
-    const sil = el("g", { class: "silhouette" });
-    for (const pass of ["edge", "fill"])
-      for (const p of d.pieces) sil.append(el("polygon", { points: ptsAttr(p.pts, fit.scale, fit.ox, fit.oy), class: pass }));
-    svg.append(sil);
-  }
   d.pieces.forEach((p, i) => {
     const poly = el("polygon", {
       points: ptsAttr(p.pts, fit.scale, fit.ox, fit.oy), fill: COLORS[p.t],

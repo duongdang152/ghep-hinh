@@ -57,8 +57,5 @@ html, body { margin:0; height:100%; background:var(--bg); color:var(--ink); font
 .mode[aria-pressed="true"] { background:var(--line); color:#fff }
 .mode:focus-visible { outline:4px solid #4C8FD6; outline-offset:-4px }
 
-/* hard mode: outer shape only, loose pieces lie on the board */
-.silhouette .edge { fill:#e7d6b8; stroke:#5b3a29; stroke-width:5; stroke-linejoin:round }
-.silhouette .fill { fill:#e7d6b8; stroke:#e7d6b8; stroke-width:1.2; stroke-linejoin:round }
-#board.hard .slot:not(.filled) { stroke:none; fill-opacity:0 }
+/* hard mode: loose pieces lie on the board */
 .loose { stroke:#2b1d14; stroke-width:1.6; stroke-linejoin:round; cursor:grab; filter:drop-shadow(0 3px 3px rgba(0,0,0,.25)) }
