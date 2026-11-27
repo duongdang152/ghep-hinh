@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { readFileSync } from "node:fs";
+import { angleOk, ANGLE_TOL, TAP_STEP } from "../site/logic.js";
 
 const SITE = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "site");
 const DATA = JSON.parse(readFileSync(path.join(SITE, "designs.json")));
@@ -224,6 +225,102 @@ await t("restart empties the board", async page => {
   await dropOnSlot(page, "thin", i);
   await page.click("#restart"); await page.waitForTimeout(200);
   assert.equal(await filledCount(page), 0); assert.equal(await badge(page, "thin"), "×4");
+});
+// ---------- hard mode ----------
+const FOX = "p04_con_vat_2-8";
+async function hardOpen(page, id = ID) {
+  await page.goto(BASE); await page.click('.mode[data-mode="hard"]');
+  await openId(page, id); await page.waitForSelector("#play:not([hidden]) .slot");
+}
+const looseAt = async (page, k = 0) => center(page, `.loose >> nth=${k}`);
+async function tap(page, x, y) { await pointer(page, "pointerdown", x, y, 1); await pointer(page, "pointerup", x, y, 1); await page.waitForTimeout(80); }
+// a slot of this type whose angle the upright piece does NOT fit
+const awkwardSlot = (page, type) => page.$$eval(".slot:not(.filled)", (els, type) => els.filter(e => e.dataset.type === type).map(e => [e.dataset.i, +e.dataset.angle]), type)
+  .then(list => list.find(([, a]) => !angleOk(type, 0, a, ANGLE_TOL)));
+// drop a loose piece on slot i after tapping it round until it fits
+async function turnAndPlace(page, type, i, angle) {
+  for (let k = 0; k < 12; k++) {
+    const cur = +(await page.$eval(".loose", e => e.dataset.angle));
+    if (angleOk(type, cur, angle, ANGLE_TOL)) break;
+    const [x, y] = await looseAt(page); await tap(page, x, y);
+  }
+  const [sx, sy] = await center(page, `.slot[data-i="${i}"]`);
+  await drag(page, ".loose", [sx, sy + LIFT]);
+}
+
+await t("hard: choice is remembered and the picture shows only its outline", async page => {
+  await page.goto(BASE); await page.click('.mode[data-mode="hard"]');
+  await page.reload(); await page.waitForSelector(".thumb");
+  assert.equal(await page.$eval('.mode[data-mode="hard"]', e => e.getAttribute("aria-pressed")), "true");
+  await openId(page, ID); await page.waitForSelector(".slot");
+  assert.equal(await page.$$eval(".silhouette", e => e.length), 1);
+  const strokes = await page.$$eval(".slot:not(.filled)", els => els.map(e => getComputedStyle(e).stroke));
+  assert.ok(strokes.every(s => s === "none"), "no piece lines in hard mode");
+});
+await t("hard: wrong angle leaves a loose piece where it fell", async page => {
+  await hardOpen(page);
+  const [i] = await awkwardSlot(page, "thin");
+  const [sx, sy] = await center(page, `.slot[data-i="${i}"]`);
+  await drag(page, `.tray-item[data-type="thin"]`, [sx, sy + LIFT]);
+  assert.equal(await filledCount(page), 0);
+  assert.equal(await page.$$eval(".loose", e => e.length), 1);
+  assert.equal(await badge(page, "thin"), "×3");
+});
+await t("hard: tapping a loose piece turns it", async page => {
+  await hardOpen(page);
+  const [i] = await awkwardSlot(page, "thin");
+  const [sx, sy] = await center(page, `.slot[data-i="${i}"]`);
+  await drag(page, `.tray-item[data-type="thin"]`, [sx, sy + LIFT]);
+  const [x, y] = await looseAt(page); await tap(page, x, y);
+  assert.equal(await page.$eval(".loose", e => +e.dataset.angle), TAP_STEP);
+  assert.equal(await page.$$eval(".loose", e => e.length), 1);
+});
+await t("hard: a turned piece snaps in", async page => {
+  await hardOpen(page);
+  const [i, angle] = await awkwardSlot(page, "thin");
+  const [sx, sy] = await center(page, `.slot[data-i="${i}"]`);
+  await drag(page, `.tray-item[data-type="thin"]`, [sx, sy + LIFT]);
+  await turnAndPlace(page, "thin", i, angle);
+  assert.equal(await page.$eval(`.slot[data-i="${i}"]`, e => e.classList.contains("filled")), true);
+  assert.equal(await page.$$eval(".loose", e => e.length), 0);
+});
+await t("hard: two-finger twist turns the dragged piece", async page => {
+  await hardOpen(page);
+  const [hx, hy] = await center(page, `.tray-item[data-type="thin"]`);
+  await pointer(page, "pointerdown", hx, hy, 1);
+  await pointer(page, "pointermove", 400, 400, 1);
+  await pointer(page, "pointerdown", 500, 400, 2);
+  await pointer(page, "pointermove", 400, 500, 2);          // second finger swings 90° clockwise around the first
+  await pointer(page, "pointerup", 400, 500, 2);
+  assert.equal(await page.$eval(".drag", e => +e.dataset.angle), 90);
+  await pointer(page, "pointerup", 400, 400, 1);
+});
+await t("hard: a loose piece dropped on the tray goes back", async page => {
+  await hardOpen(page);
+  const [i] = await awkwardSlot(page, "thin");
+  const [sx, sy] = await center(page, `.slot[data-i="${i}"]`);
+  await drag(page, `.tray-item[data-type="thin"]`, [sx, sy + LIFT]);
+  const [tx, ty] = await center(page, "#tray");
+  await drag(page, ".loose", [tx, ty + LIFT]);
+  assert.equal(await page.$$eval(".loose", e => e.length), 0);
+  assert.equal(await badge(page, "thin"), "×4");
+});
+await t("hard: finishing gives the hard star, not the easy one", async page => {
+  await hardOpen(page, FOX);
+  for (let k = 0; k < 12; k++) {
+    const left = await page.$$eval(".slot:not(.filled)", els => els.map(e => [e.dataset.type, e.dataset.i, +e.dataset.angle]));
+    if (!left.length) break;
+    const [type, i, angle] = left[0];
+    await drag(page, `.tray-item[data-type="${type}"]`, [200, 200]);      // put it down loose, then turn and place it
+    await turnAndPlace(page, type, i, angle);
+  }
+  await page.waitForSelector("#done:not([hidden])", { timeout: 2000 });
+  await page.click("#to-list");
+  const star = () => page.$eval(`.book[data-book="${BOOK_OF(FOX)}"] .thumb[data-id="${FOX}"]`, e => e.classList.contains("done"));
+  await page.click(`.tab[data-book="${BOOK_OF(FOX)}"]`);
+  assert.equal(await star(), true);
+  await page.click('.mode[data-mode="easy"]');
+  assert.equal(await star(), false);
 });
 if (process.env.E2E_OFFLINE !== "0") await t("works offline after first load", async (page, ctx) => {
   await page.goto(BASE);

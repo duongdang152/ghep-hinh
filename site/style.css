@@ -50,3 +50,15 @@ html, body { margin:0; height:100%; background:var(--bg); color:var(--ink); font
 .stars i { position:absolute; font-style:normal; font-size:34px; color:#F2B01E; animation:pop 1s ease-out both }
 @keyframes pop { from { transform:translateY(40px) scale(.2); opacity:0 } 60% { opacity:1 } to { transform:translateY(0) scale(1); opacity:1 } }
 @media (prefers-reduced-motion: reduce) { .stars i { animation:none } .drag.fly { transition:none } }
+
+/* difficulty switch */
+.modes { margin-left:auto; display:flex; border:2.5px solid var(--line); border-radius:24px; overflow:hidden }
+.mode { min-width:64px; min-height:46px; border:0; background:var(--card); font:inherit; font-size:19px; font-weight:900; color:var(--ink); cursor:pointer }
+.mode[aria-pressed="true"] { background:var(--line); color:#fff }
+.mode:focus-visible { outline:4px solid #4C8FD6; outline-offset:-4px }
+
+/* hard mode: outer shape only, loose pieces lie on the board */
+.silhouette .edge { fill:#e7d6b8; stroke:#5b3a29; stroke-width:5; stroke-linejoin:round }
+.silhouette .fill { fill:#e7d6b8; stroke:#e7d6b8; stroke-width:1.2; stroke-linejoin:round }
+#board.hard .slot:not(.filled) { stroke:none; fill-opacity:0 }
+.loose { stroke:#2b1d14; stroke-width:1.6; stroke-linejoin:round; cursor:grab; filter:drop-shadow(0 3px 3px rgba(0,0,0,.25)) }

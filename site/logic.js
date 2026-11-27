@@ -51,3 +51,50 @@ export function uprightShape(type) {
   a /= 2; cx /= 6 * a; cy /= 6 * a;
   return p.map(([x, y]) => [x - cx, y - cy]);
 }
+
+// ---------- hard mode: pieces must be turned the right way ----------
+export const ANGLE_TOL = 16;     // degrees either side of the slot's angle that still snap
+export const TAP_STEP = 30;      // one tap on a loose piece turns it this much
+// rotation after which each piece looks the same again (all eight shapes are mirror-symmetric)
+const SYM = { hex: 60, trap: 360, rhomb: 180, thin: 180, tri: 120, sq: 90, bluetri: 360, quarter: 360 };
+
+// Rotate points clockwise on screen (y points down) by deg degrees about the origin.
+export function rotatePts(pts, deg) {
+  const a = deg * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+  return pts.map(([x, y]) => [x * c - y * s, x * s + y * c]);
+}
+
+// The angle (0-359, whole degrees) that turns the upright piece onto this slot.
+export function slotAngle(type, pts, c) {
+  const up = uprightShape(type), local = pts.map(([x, y]) => [x - c[0], y - c[1]]);
+  let best = 0, bestErr = Infinity;
+  for (let a = 0; a < SYM[type]; a++) {
+    const r = rotatePts(up, a);
+    let err = 0;
+    for (const [x, y] of local) {
+      let m = Infinity;
+      for (const [u, v] of r) { const d = (u - x) ** 2 + (v - y) ** 2; if (d < m) m = d; }
+      if (m > err) err = m;
+      if (err >= bestErr) break;
+    }
+    if (err < bestErr) { bestErr = err; best = a; }
+  }
+  return best;
+}
+
+// Does a piece turned to angle a sit like one turned to b, within tol degrees?
+export function angleOk(type, a, b, tol) {
+  const sym = SYM[type], d = (((a - b) % sym) + sym) % sym;
+  return Math.min(d, sym - d) <= tol;
+}
+
+// Like findSnap, but the piece must also be turned to fit (slotAngles[i] from slotAngle).
+export function findSnapHard(type, point, angle, pieces, filled, radius, slotAngles) {
+  let best = -1, bestD = Infinity;
+  pieces.forEach((p, i) => {
+    if (p.t !== type || filled[i] || !angleOk(type, angle, slotAngles[i], ANGLE_TOL)) return;
+    const d = Math.hypot(p.c[0] - point[0], p.c[1] - point[1]);
+    if (d <= radius && d < bestD) { best = i; bestD = d; }
+  });
+  return best;
+}
