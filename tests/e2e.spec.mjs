@@ -131,7 +131,10 @@ await t("a placed piece can be dragged back out", async page => {
 });
 if (process.env.E2E_OFFLINE !== "0") await t("works offline after first load", async (page, ctx) => {
   await page.goto(BASE);
-  await page.evaluate(() => navigator.serviceWorker && navigator.serviceWorker.ready);
+  const ok = await page.evaluate(() => Promise.race([
+    navigator.serviceWorker ? navigator.serviceWorker.ready.then(() => true) : false,
+    new Promise(r => setTimeout(() => r(false), 3000))]));
+  assert.ok(ok, "service worker active");
   await page.waitForTimeout(500);
   await ctx.setOffline(true);
   await page.reload();
