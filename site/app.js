@@ -71,10 +71,20 @@ function startGame(id) {
 }
 function layout() {
   if (!game) return;
-  const wrap = $("#board-wrap").getBoundingClientRect();
-  game.fit = fitTransform(game.d.w, game.d.h, wrap.width, wrap.height, PAD);
-  renderBoard(); renderTray();
+  renderTray();                                    // the tray's height decides how much room the picture gets
+  fitBoard();
 }
+function fitBoard() {
+  if (!game) return;
+  if (drag) { pendingFit = true; return; }        // never rebuild the node under a moving finger
+  const wrap = $("#board-wrap").getBoundingClientRect();
+  const fit = fitTransform(game.d.w, game.d.h, wrap.width, wrap.height, PAD), f = game.fit;
+  if (f && $("#board").childNodes.length && Math.abs(f.scale - fit.scale) < 0.01 && Math.abs(f.ox - fit.ox) < 0.5 && Math.abs(f.oy - fit.oy) < 0.5) return;
+  game.fit = fit;                                  // only redraw when the room for the picture really changed
+  renderBoard();
+}
+let pendingFit = false;
+new ResizeObserver(() => fitBoard()).observe($("#board-wrap"));   // tray rows change -> picture refits
 function renderBoard() {
   const { d, filled, fit } = game, svg = $("#board");
   svg.textContent = "";
@@ -132,6 +142,7 @@ function beginDrag(e, type, fromSlot) {
 function moveTo(x, y) { drag.x = x; drag.y = y; drag.svg.style.transform = `translate(${x - drag.r}px, ${y - drag.r}px)`; }
 function flyTo(x, y, then) {
   const { svg } = drag; drag = null;
+  if (pendingFit) { pendingFit = false; fitBoard(); }
   svg.classList.add("fly"); svg.style.transform = `translate(${x - parseFloat(svg.getAttribute("width")) / 2}px, ${y - parseFloat(svg.getAttribute("height")) / 2}px)`;
   setTimeout(() => { svg.remove(); then && then(); }, 160);
 }
@@ -158,6 +169,7 @@ function cancelDrag() {
   if (!drag) return;
   if (game && drag.fromSlot >= 0) game.filled[drag.fromSlot] = true;
   drag.svg.remove(); drag = null;
+  if (pendingFit) { pendingFit = false; fitBoard(); }
 }
 window.addEventListener("pointermove", e => { if (drag && e.pointerId === drag.id) moveTo(e.clientX, e.clientY - LIFT); });
 window.addEventListener("pointerup", endDrag);
@@ -184,7 +196,7 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catc
 $("#back").onclick = showPicker;
 $("#to-list").onclick = showPicker;
 $("#next").onclick = nextGame;
-$("#restart").onclick = () => { if (game) { cancelDrag(); game.filled = game.d.pieces.map(() => false); layout(); } };
+$("#restart").onclick = () => { if (game) { cancelDrag(); game.filled = game.d.pieces.map(() => false); game.fit = null; layout(); } };
 window.addEventListener("resize", () => { cancelDrag(); layout(); });
 
 data = await (await fetch("designs.json")).json();

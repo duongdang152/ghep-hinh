@@ -193,6 +193,26 @@ await t("tapping back right after the last piece keeps the star, no error", asyn
   assert.deepEqual(errors, []);
   assert.equal(await page.$eval(`.thumb[data-id="${ID}"]`, e => e.classList.contains("done")), true);
 });
+for (const [w, h] of [[1024, 1366], [768, 1024], [390, 844], [844, 390]]) {
+  await t(`picture is not hidden under the tray at ${w}x${h}`, async page => {
+    for (const id of await page.goto(BASE).then(() => page.$$eval(".thumb", els => els.map(e => e.dataset.id)))) {
+      await page.goto(BASE); await page.click(`.thumb[data-id="${id}"]`); await page.waitForSelector(".tray-item");
+      await page.waitForTimeout(100);
+      const trayTop = (await page.locator("#tray").boundingBox()).y;
+      const headerBottom = await page.$eval("#play .bar", e => e.getBoundingClientRect().bottom);
+      const [top, bottom] = await page.$$eval(".slot", els => { const r = els.map(e => e.getBoundingClientRect()); return [Math.min(...r.map(b => b.top)), Math.max(...r.map(b => b.bottom))]; });
+      assert.ok(bottom <= trayTop + 0.5, `${id}: picture ends at ${bottom}, tray starts at ${trayTop}`);
+      assert.ok(top >= headerBottom - 0.5, `${id}: picture starts at ${top}, header ends at ${headerBottom}`);
+    }
+  }, { width: w, height: h });
+}
+await t("restart empties the board", async page => {
+  await open(page);
+  const [i] = await slotSel(page, "thin");
+  await dropOnSlot(page, "thin", i);
+  await page.click("#restart"); await page.waitForTimeout(200);
+  assert.equal(await filledCount(page), 0); assert.equal(await badge(page, "thin"), "×4");
+});
 if (process.env.E2E_OFFLINE !== "0") await t("works offline after first load", async (page, ctx) => {
   await page.goto(BASE);
   const ok = await page.evaluate(() => Promise.race([
