@@ -1,0 +1,52 @@
+:root { --bg:#FBF1DD; --ink:#3b2a20; --soft:#9b7a63; --card:#fffdf7; --line:#7A4E33; --accent:#4FA35B;
+  --font: ui-rounded, "SF Pro Rounded", "Nunito", system-ui, sans-serif; color-scheme: light; }
+* { box-sizing:border-box }
+html, body { margin:0; height:100%; background:var(--bg); color:var(--ink); font-family:var(--font);
+  -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color:transparent; overscroll-behavior:none }
+[hidden] { display:none !important }
+.bar { display:flex; align-items:center; gap:12px; padding:max(10px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 8px max(16px, env(safe-area-inset-left)) }
+.bar h1 { margin:0; font-size:30px; font-weight:900 }
+.bar h2 { margin:0; font-size:24px; font-weight:800; flex:1; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+.btn { min-width:48px; min-height:48px; border-radius:24px; border:2.5px solid var(--line); background:var(--card);
+  color:var(--ink); font:inherit; font-size:24px; font-weight:800; cursor:pointer; padding:0 14px }
+.btn.wide { font-size:19px; padding:0 22px } .btn.primary { background:var(--accent); color:#fff; border-color:#2f7a3a }
+.btn:focus-visible { outline:4px solid #4C8FD6; outline-offset:2px }
+
+/* picker */
+#picker { height:100%; overflow:auto; padding-bottom:env(safe-area-inset-bottom) }
+.tabs { display:flex; gap:8px; padding:0 max(16px, env(safe-area-inset-left)) 6px }
+.tab { min-height:46px; padding:0 20px; border-radius:23px; border:2.5px solid var(--line); background:var(--card); font:inherit; font-size:18px; font-weight:800; color:var(--ink) }
+.tab[aria-selected="true"] { background:var(--line); color:#fff }
+.book { padding:0 max(16px, env(safe-area-inset-right)) 24px max(16px, env(safe-area-inset-left)) }
+.book h3 { margin:18px 0 8px; font-size:20px; font-weight:900 }
+.grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(124px, 1fr)); gap:10px }
+.thumb { position:relative; display:flex; flex-direction:column; align-items:center; gap:4px; padding:8px 6px 6px;
+  border-radius:16px; border:2px solid #e5d8cc; background:var(--card); font:inherit; color:var(--ink); cursor:pointer }
+.thumb svg { width:100%; height:92px }
+.thumb span { font-size:13px; font-weight:800; line-height:1.15; text-align:center }
+.thumb.done::after { content:"★"; position:absolute; top:4px; right:8px; font-size:22px; color:#F2B01E; text-shadow:0 1px 0 #8a5a00 }
+
+/* play */
+#play { position:fixed; inset:0; display:flex; flex-direction:column }
+#board-wrap { flex:1; min-height:0; position:relative; touch-action:none }
+#board { position:absolute; inset:0; width:100%; height:100%; touch-action:none }
+.slot { stroke:#5b3a29; stroke-width:1.4; stroke-linejoin:round; stroke-dasharray:5 4 }
+.slot.filled { stroke-dasharray:none; stroke-width:1.6; cursor:grab }
+#tray { display:flex; gap:10px; overflow-x:auto; touch-action:pan-x; padding:10px max(16px, env(safe-area-inset-left)) max(14px, env(safe-area-inset-bottom));
+  background:#f3e4c6; border-top:2.5px solid #e0cba6; min-height:118px }
+.tray-item { position:relative; flex:0 0 auto; width:96px; height:96px; border-radius:18px; background:var(--card);
+  border:2px solid #e0cba6; display:grid; place-items:center; touch-action:none; cursor:grab }
+.tray-item svg { width:80px; height:80px; pointer-events:none }
+.badge { position:absolute; right:4px; bottom:2px; font-size:17px; font-weight:900; pointer-events:none }
+.drag { position:fixed; left:0; top:0; pointer-events:none; z-index:20; overflow:visible; filter:drop-shadow(0 6px 6px rgba(0,0,0,.25)) }
+.drag.fly { transition:transform .15s ease-out }
+
+/* celebration */
+#done { position:fixed; inset:0; z-index:30; display:grid; place-items:center; background:rgba(59,42,32,.35) }
+#done .card { background:var(--card); border:3px solid var(--line); border-radius:28px; padding:26px 30px; text-align:center; min-width:min(92vw, 420px); position:relative; overflow:hidden }
+.cheer { font-size:46px; font-weight:900; margin:6px 0 18px; color:var(--accent) }
+#done .row { display:flex; gap:12px; justify-content:center; flex-wrap:wrap }
+.stars { height:70px; position:relative }
+.stars i { position:absolute; font-style:normal; font-size:34px; color:#F2B01E; animation:pop 1s ease-out both }
+@keyframes pop { from { transform:translateY(40px) scale(.2); opacity:0 } 60% { opacity:1 } to { transform:translateY(0) scale(1); opacity:1 } }
+@media (prefers-reduced-motion: reduce) { .stars i { animation:none } .drag.fly { transition:none } }
