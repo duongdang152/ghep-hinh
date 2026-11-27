@@ -170,6 +170,7 @@ function nextGame() {
 }
 
 // ---------- boot ----------
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 $("#back").onclick = showPicker;
 $("#to-list").onclick = showPicker;
 $("#next").onclick = nextGame;
