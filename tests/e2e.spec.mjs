@@ -4,10 +4,12 @@ import { spawn } from "node:child_process";
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { readFileSync } from "node:fs";
 
 const SITE = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "site");
+const N = JSON.parse(readFileSync(path.join(SITE, "designs.json"))).books.flatMap(b => b.groups.flatMap(g => g.designs)).length;
 const LIFT = 60;                    // the app draws the dragged piece this many px above the finger
-const ID = "p03_con_vat_1-1";       // Con thỏ: hex 2, trap 1, rhomb 2, tri 3, thin 3
+const ID = "p14_phep_thuat-1";      // Chim cánh cụt: hex 3, rhomb 2, thin 4
 
 let server, BASE = process.env.BASE_URL;
 if (!BASE) {
@@ -56,32 +58,32 @@ const badge = (page, type) => page.$eval(`.tray-item[data-type="${type}"] .badge
 const filledCount = page => page.$$eval(".slot.filled", e => e.length);
 
 // ---- tests ----
-await t("picker lists 234 thumbs", async page => {
+await t("picker lists every picture", async page => {
   await page.goto(BASE); await page.waitForSelector(".thumb");
-  assert.equal(await page.$$eval(".thumb", e => e.length), 234);
+  assert.equal(await page.$$eval(".thumb", e => e.length), N);
 });
 await t("tray badge counts match pieces", async page => {
   await open(page);
-  assert.equal(await badge(page, "hex"), "×2"); assert.equal(await badge(page, "tri"), "×3"); assert.equal(await badge(page, "thin"), "×3");
+  assert.equal(await badge(page, "hex"), "×3"); assert.equal(await badge(page, "rhomb"), "×2"); assert.equal(await badge(page, "thin"), "×4");
 });
 await t("drop on matching slot fills it and decrements badge", async page => {
   await open(page);
-  const [i] = await slotSel(page, "tri");
-  await dropOnSlot(page, "tri", i);
+  const [i] = await slotSel(page, "thin");
+  await dropOnSlot(page, "thin", i);
   assert.equal(await page.$eval(`.slot[data-i="${i}"]`, e => e.classList.contains("filled")), true);
-  assert.equal(await badge(page, "tri"), "×2");
+  assert.equal(await badge(page, "thin"), "×3");
 });
 await t("drop on empty space returns piece and fills nothing", async page => {
   await open(page);
   await drag(page, `.tray-item[data-type="hex"]`, [10, 200]);
-  assert.equal(await filledCount(page), 0); assert.equal(await badge(page, "hex"), "×2");
+  assert.equal(await filledCount(page), 0); assert.equal(await badge(page, "hex"), "×3");
   assert.equal(await page.$$eval(".drag", e => e.length), 0);
 });
 await t("wrong type near a slot does not fill", async page => {
   await open(page);
   const [i] = await slotSel(page, "hex");
   const [sx, sy] = await center(page, `.slot[data-i="${i}"]`);
-  await drag(page, `.tray-item[data-type="tri"]`, [sx, sy + LIFT]);
+  await drag(page, `.tray-item[data-type="thin"]`, [sx, sy + LIFT]);
   assert.equal(await filledCount(page), 0);
 });
 await t("filling all slots shows #done and the thumb gets ★", async page => {
@@ -100,7 +102,7 @@ await t("second simultaneous pointer is ignored", async page => {
   const [i] = await slotSel(page, "hex");
   const [sx, sy] = await center(page, `.slot[data-i="${i}"]`);
   const [hx, hy] = await center(page, `.tray-item[data-type="hex"]`);
-  const [tx, ty] = await center(page, `.tray-item[data-type="tri"]`);
+  const [tx, ty] = await center(page, `.tray-item[data-type="thin"]`);
   await pointer(page, "pointerdown", hx, hy, 1);
   await pointer(page, "pointerdown", tx, ty, 2);
   assert.equal(await page.$$eval(".drag", e => e.length), 1);
@@ -124,10 +126,10 @@ await t("resize to phone keeps filled slots filled", async page => {
 });
 await t("a placed piece can be dragged back out", async page => {
   await open(page);
-  const [i] = await slotSel(page, "tri");
-  await dropOnSlot(page, "tri", i);
+  const [i] = await slotSel(page, "thin");
+  await dropOnSlot(page, "thin", i);
   await drag(page, `.slot[data-i="${i}"]`, [10, 200]);
-  assert.equal(await filledCount(page), 0); assert.equal(await badge(page, "tri"), "×3");
+  assert.equal(await filledCount(page), 0); assert.equal(await badge(page, "thin"), "×4");
 });
 if (process.env.E2E_OFFLINE !== "0") await t("works offline after first load", async (page, ctx) => {
   await page.goto(BASE);
@@ -139,7 +141,7 @@ if (process.env.E2E_OFFLINE !== "0") await t("works offline after first load", a
   await ctx.setOffline(true);
   await page.reload();
   await page.waitForSelector(".thumb", { timeout: 4000 });
-  assert.equal(await page.$$eval(".thumb", e => e.length), 234);
+  assert.equal(await page.$$eval(".thumb", e => e.length), N);
 });
 
 await browser.close(); if (server) server.kill();

@@ -4,6 +4,8 @@ import importlib, io, contextlib, json, os, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # ~/Downloads/ghep-hinh
 sys.path.insert(0, ROOT)
+# Prototype: only these pictures are shipped (easiest first). Set to None to ship all 234.
+PROTOTYPE = ["p04_con_vat_2-8", "p06_trai_cay_1-7", "p18_con_vat_4-3", "p14_phep_thuat-1", "p06_trai_cay_1-8"]
 BOOKS = [("ban-dau", "Tập ban đầu", "designs/p*.py"), ("moi", "Tập mới", "designs/n*.py")]
 
 def _centroid(pts):
@@ -26,7 +28,7 @@ def _grouped(pattern):
         os.chdir(cwd); sys.argv = argv
     return g
 
-def export(out_path):
+def export(out_path, only=None):
     import pb
     books = []
     for bid, title, pattern in BOOKS:
@@ -49,10 +51,13 @@ def export(out_path):
                 out.append({"id": d["_id"], "label": d["label"], "w": w, "h": h, "pieces": pieces})
             groups.append({"title": gtitle, "designs": out})
         books.append({"id": bid, "title": title, "groups": groups})
+    if only:
+        flat = {d["id"]: d for b in books for g in b["groups"] for d in g["designs"]}
+        books = [{"id": "de", "title": "Hình dễ", "groups": [{"title": "5 hình dễ", "designs": [flat[i] for i in only]}]}]
     data = {"books": books}
     with open(out_path, "w") as f:
         json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
     return data
 
 if __name__ == "__main__":
-    export(os.path.join(os.path.dirname(os.path.abspath(__file__)), "site", "designs.json"))
+    export(os.path.join(os.path.dirname(os.path.abspath(__file__)), "site", "designs.json"), only=PROTOTYPE)

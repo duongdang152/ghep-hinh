@@ -1,5 +1,5 @@
 // Offline support: precache the whole app, serve cache-first, drop old caches.
-const CACHE = "ghep-hinh-52f1cb6544";
+const CACHE = "ghep-hinh-7427041d59";
 const FILES = ["./", "index.html", "style.css", "app.js", "logic.js", "designs.json",
   "manifest.webmanifest", "icon-180.png", "icon-192.png", "icon-512.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))); self.skipWaiting(); });

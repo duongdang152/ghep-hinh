@@ -15,12 +15,21 @@ class ExportTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         import export_designs
-        cls.data = export_designs.export(os.path.join(APP, "site", "designs.json"))
+        import tempfile
+        cls.tmp = tempfile.mkdtemp()
+        cls.data = export_designs.export(os.path.join(cls.tmp, "all.json"))
+        cls.proto = export_designs.export(os.path.join(cls.tmp, "proto.json"), only=export_designs.PROTOTYPE)
         cls.designs = [d for b in cls.data["books"] for g in b["groups"] for d in g["designs"]]
 
     def test_counts(self):
         books = {b["id"]: sum(len(g["designs"]) for g in b["groups"]) for b in self.data["books"]}
         self.assertEqual(books, {"ban-dau": 188, "moi": 46})
+
+    def test_prototype_is_five_in_order(self):
+        import export_designs
+        ds = [d for b in self.proto["books"] for g in b["groups"] for d in g["designs"]]
+        self.assertEqual([d["id"] for d in ds], export_designs.PROTOTYPE)
+        self.assertEqual([d["label"] for d in ds], ["Con cáo", "Mặt trời", "Con chuột", "Chim cánh cụt", "Ngôi nhà"])
 
     def test_ids_unique(self):
         ids = [d["id"] for d in self.designs]
