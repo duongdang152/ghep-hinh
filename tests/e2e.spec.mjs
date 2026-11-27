@@ -337,6 +337,43 @@ for (const m of ["easy", "hard"]) await t(`${m}: picture keeps its size as the t
     assert.deepEqual(await box(), before, `picture moved after placing ${type}`);
   }
 });
+// ---------- picture (reference) mode ----------
+await t("mẫu: shows the picture in full colour with the piece list, nothing to drag", async page => {
+  await page.goto(BASE); await page.click('.mode[data-mode="view"]'); await openId(page, ID);
+  await page.waitForSelector(".slot");
+  assert.deepEqual(await page.$$eval(".slot", els => [...new Set(els.map(e => e.classList.contains("filled") && e.getAttribute("fill-opacity") === "1"))]), [true]);
+  assert.equal(await badge(page, "hex"), "×3"); assert.equal(await badge(page, "rhomb"), "×2"); assert.equal(await badge(page, "thin"), "×4");
+  const [x, y] = await center(page, '.tray-item[data-type="hex"]');
+  await pointer(page, "pointerdown", x, y, 1); await pointer(page, "pointermove", 300, 300, 1);
+  assert.equal(await page.$$eval(".drag", e => e.length), 0);
+  await pointer(page, "pointerup", 300, 300, 1);
+  const [sx, sy] = await center(page, ".slot.filled");
+  await pointer(page, "pointerdown", sx, sy, 1); await pointer(page, "pointermove", 300, 300, 1);
+  assert.equal(await page.$$eval(".drag", e => e.length), 0);
+  await pointer(page, "pointerup", 300, 300, 1);
+  assert.equal(await page.$eval("#restart", e => e.hidden), true);
+});
+await t("mẫu: → shows the next picture in the same tab", async page => {
+  await page.goto(BASE); await page.click('.mode[data-mode="view"]'); await openId(page, ID);
+  const book = DATA.books.find(b => b.id === BOOK_OF(ID)), ids = book.groups.flatMap(g => g.designs.map(d => d.id));
+  const next = ids[(ids.indexOf(ID) + 1) % ids.length];
+  await page.click("#view-next");
+  assert.equal(await page.$eval("#title", e => e.textContent), ALL.find(d => d.id === next).label + " · Mẫu");
+  assert.equal(await page.$eval("#view-next", e => e.hidden), false);
+});
+await t("mẫu: the choice is remembered, and → is hidden in play modes", async page => {
+  await page.goto(BASE); await page.click('.mode[data-mode="view"]'); await page.reload(); await page.waitForSelector(".thumb");
+  assert.equal(await page.$eval('.mode[data-mode="view"]', e => e.getAttribute("aria-pressed")), "true");
+  await page.click('.mode[data-mode="easy"]'); await openId(page, ID);
+  assert.equal(await page.$eval("#view-next", e => e.hidden), true);
+});
+await t("theme tabs stay on one line on a phone", async page => {
+  await page.goto(BASE); await page.waitForSelector(".tab");
+  const lines = await page.$$eval(".tab", els => els.map(e => { const r = document.createRange(); r.selectNodeContents(e);
+    return [e.textContent, new Set([...r.getClientRects()].map(q => Math.round(q.top))).size]; }));
+  const wrapped = lines.filter(([, n]) => n > 1).map(([t]) => t);
+  assert.deepEqual(wrapped, [], `labels broken over two lines: ${wrapped}`);
+}, { width: 390, height: 844 });
 if (process.env.E2E_OFFLINE !== "0") await t("works offline after first load", async (page, ctx) => {
   await page.goto(BASE);
   const ok = await page.evaluate(() => Promise.race([

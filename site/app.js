@@ -1,5 +1,6 @@
 // UI for the pattern-block puzzle: picker, play board, touch dragging, celebration.
 // Easy mode: every piece's outline is drawn; a piece turns itself when it snaps.
+// Picture mode ("Mẫu"): the picture is shown large with its piece list, to copy on the real wooden board.
 // Hard mode: same outlines, but the child turns pieces (tap a loose piece, or twist with a second finger
 // while dragging) and a piece snaps only when it is turned the right way.
 import {
@@ -10,17 +11,18 @@ import {
 const LIFT = 60;           // dragged piece is drawn this many px above the finger so it stays visible
 const PAD = 16;            // board padding, px
 const TAP_SLOP = 10;       // a touch that moves less than this (px) is a tap
-const KEYS = { easy: "ghep-hinh:done", hard: "ghep-hinh:done-hard", mode: "ghep-hinh:mode" };
+const KEYS = { easy: "ghep-hinh:done", hard: "ghep-hinh:done-hard", view: null, mode: "ghep-hinh:mode" };
+const MODES = ["easy", "hard", "view"];
 const NS = "http://www.w3.org/2000/svg";
 const $ = s => document.querySelector(s);
 
 let data, all = [], game = null, drag = null, pendingFit = false;
-let mode = load(KEYS.mode, "easy") === "hard" ? "hard" : "easy";
+let mode = MODES.includes(load(KEYS.mode, "easy")) ? load(KEYS.mode, "easy") : "easy";
 
 // ---------- storage (per device, may be unavailable) ----------
 function load(key, fallback) { try { return localStorage.getItem(key) ?? fallback; } catch { return fallback; } }
 function store(key, value) { try { localStorage.setItem(key, value); } catch {} }
-function loadDone(m = mode) { try { return new Set(JSON.parse(load(KEYS[m], "[]"))); } catch { return new Set(); } }
+function loadDone(m = mode) { if (!KEYS[m]) return new Set(); try { return new Set(JSON.parse(load(KEYS[m], "[]"))); } catch { return new Set(); } }
 function saveDone(id, m) { const s = loadDone(m); s.add(id); store(KEYS[m], JSON.stringify([...s])); }
 
 // ---------- svg helpers ----------
@@ -83,9 +85,10 @@ function showPicker() {
 // ---------- game ----------
 function startGame(id) {
   const d = all.find(x => x.id === id);
-  game = { d, mode, filled: d.pieces.map(() => false), loose: [], fit: null,
+  game = { d, mode, filled: d.pieces.map(() => mode === "view"), loose: [], fit: null,
     angles: mode === "hard" ? d.pieces.map(p => slotAngle(p.t, p.pts, p.c)) : null };
-  $("#title").textContent = d.label + (mode === "hard" ? " · Khó" : "");
+  $("#title").textContent = d.label + ({ hard: " · Khó", view: " · Mẫu" }[mode] || "");
+  $("#restart").hidden = mode === "view"; $("#view-next").hidden = mode !== "view";
   $("#picker").hidden = true; $("#done").hidden = true; $("#play").hidden = false;
   layout();
 }
@@ -120,7 +123,7 @@ function renderBoard() {
     });
     poly.dataset.i = i; poly.dataset.type = p.t;
     if (hard) poly.dataset.angle = game.angles[i];
-    if (filled[i]) poly.addEventListener("pointerdown", e => beginDrag(e, p.t, { slot: i }));
+    if (filled[i] && game.mode !== "view") poly.addEventListener("pointerdown", e => beginDrag(e, p.t, { slot: i }));
     svg.append(poly);
   });
   game.loose.forEach((q, k) => {
@@ -133,6 +136,7 @@ function renderBoard() {
 }
 // Pieces still in the tray: empty slots minus pieces already lying loose on the board.
 function trayCounts() {
+  if (game.mode === "view") return remaining(game.d.pieces, game.d.pieces.map(() => false));   // the whole piece list
   const left = remaining(game.d.pieces, game.filled);
   for (const q of game.loose) if (left[q.type] && --left[q.type] === 0) delete left[q.type];
   return left;
@@ -149,7 +153,7 @@ function renderTray() {
     svg.append(el("polygon", { points: ptsAttr(pts), fill: COLORS[t], stroke: "#2b1d14", "stroke-width": 0.05 }));
     const badge = document.createElement("span"); badge.className = "badge"; badge.textContent = `×${left[t]}`;
     item.append(svg, badge);
-    item.addEventListener("pointerdown", e => beginDrag(e, t, { tray: true }));
+    if (game.mode !== "view") item.addEventListener("pointerdown", e => beginDrag(e, t, { tray: true }));
     tray.append(item);
   }
 }
@@ -287,6 +291,11 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catc
 $("#back").onclick = showPicker;
 $("#to-list").onclick = showPicker;
 $("#next").onclick = nextGame;
+$("#view-next").onclick = () => {                 // next picture in the same tab
+  const book = data.books.find(b => b.groups.some(g => g.designs.some(d => d.id === game.d.id)));
+  const ids = book.groups.flatMap(g => g.designs.map(d => d.id));
+  startGame(ids[(ids.indexOf(game.d.id) + 1) % ids.length]);
+};
 $("#restart").onclick = () => {
   if (!game) return;
   cancelDrag(); game.filled = game.d.pieces.map(() => false); game.loose = []; game.fit = null; layout();
